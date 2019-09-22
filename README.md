@@ -1,5 +1,5 @@
 # Lifelong-learning-neural-models-for-streaming-classification
-This repository stores all my codes from the Independent Study that I am pursuing while doing my Masters' at the Rochester Institute of Technology <br/>
+This repository stores all my code from the Independent Study that I am pursuing while doing my Masters' at the Rochester Institute of Technology as a member of the Neural Adaptive Computing Laboratory, advised under Dr. Alex Ororbia. <br/>
 **NOTE**: This work is currently ongoing and is not the final version. Therefore, this README keeps a track of progress so far.
 
 

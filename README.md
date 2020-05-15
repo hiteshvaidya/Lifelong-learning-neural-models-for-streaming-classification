@@ -9,5 +9,5 @@ For beginning, I am using Caltech-256 as the dataset for this work. Following is
 2. Run the split.py script in the decompressed folder
 3. Delete all the empty folders now except the 'train' and 'test' folders which now contains a split of the entire dataset
 
-### Week1.ipynb
-This notebook contains code for a Convolutional Neural Network written in PyTorch.
+### Code details
+- mlp-v1.2.ipynb - working code for observing forgetting in mnist and fashionmnist

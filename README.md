@@ -11,3 +11,4 @@ For beginning, I am using Caltech-256 as the dataset for this work. Following is
 
 ### Code details
 - mlp-v1.2.ipynb - working code for observing forgetting in mnist and fashionmnist
+- neurotransmitter.ipynb - current code that uses autoencoder for training mlp

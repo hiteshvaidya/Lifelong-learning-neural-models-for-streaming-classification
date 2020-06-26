@@ -12,7 +12,22 @@ import pandas as pd
 import pickle as pkl
 
 
-# In[10]:
+# In[15]:
+
+
+trainX = pd.read_csv('datasets/mnist/trainX.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
+trainY = pd.read_csv('datasets/mnist/trainY.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
+testX = pd.read_csv('datasets/mnist/testX.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
+testY = pd.read_csv('datasets/mnist/testY.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
+validX = pd.read_csv('datasets/mnist/validX.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
+validY = pd.read_csv('datasets/mnist/validY.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
+
+trainY = relabel(trainY)
+testY = relabel(testY)
+validY = relabel(validY)
+
+
+# In[16]:
 
 
 def relabel(labels):
@@ -76,13 +91,16 @@ class Network(object):
     
     def __init__(self, n_layers):
         self.params = []
-        self.W1 = tf.Variable(tf.random.normal([n_layers[0], n_layers[1]], mean=0.0, stddev=1.0, dtype=tf.dtypes.float32, seed=0), name='W1')
-        self.b1 = tf.Variable(tf.random.normal([n_layers[1]], mean=0.0, stddev=1.0, dtype=tf.dtypes.float32, seed=0), name='b1')
-        self.W2 = tf.Variable(tf.random.normal([n_layers[1], n_layers[2]], mean=0.0, stddev=1.0, dtype=tf.dtypes.float32, seed=0), name='W2')
-        self.b2 = tf.Variable(tf.random.normal([n_layers[2]], mean=0.0, stddev=1.0, dtype=tf.dtypes.float32, seed=0), name='b2')
-        self.W3 = tf.Variable(tf.random.normal([n_layers[2], n_layers[3]], mean=0.0, stddev=1.0, dtype=tf.dtypes.float32, seed=0), name='W3')
-        self.b3 = tf.Variable(tf.random.normal([n_layers[3]], mean=0.0, stddev=1.0, dtype=tf.dtypes.float32, seed=0), name='b3')
-        
+        self.W1 = tf.Variable(tf.random.normal([n_layers[0], n_layers[1]], mean=0.0, stddev=0.1, dtype=tf.dtypes.float32, seed=0), name='W1')
+#         self.b1 = tf.Variable(tf.random.normal([n_layers[1]], mean=0.0, stddev=0.1, dtype=tf.dtypes.float32, seed=0), name='b1')
+        self.b1 = tf.constant(0.1, shape=[n_layers[1]])
+        self.W2 = tf.Variable(tf.random.normal([n_layers[1], n_layers[2]], mean=0.0, stddev=0.1, dtype=tf.dtypes.float32, seed=0), name='W2')
+#         self.b2 = tf.Variable(tf.random.normal([n_layers[2]], mean=0.0, stddev=0.1, dtype=tf.dtypes.float32, seed=0), name='b2')
+        self.b2 = tf.constant(0.1, shape=[n_layers[2]])
+        self.W3 = tf.Variable(tf.random.normal([n_layers[2], n_layers[3]], mean=0.0, stddev=0.1, dtype=tf.dtypes.float32, seed=0), name='W3')
+#         self.b3 = tf.Variable(tf.random.normal([n_layers[3]], mean=0.0, stddev=0.1, dtype=tf.dtypes.float32, seed=0), name='b3')
+        self.b3 = tf.constant(0.1, shape=[n_layers[3]])
+    
         self.params.append(self.W1)
         self.params.append(self.b1)
         self.params.append(self.W2)
@@ -98,18 +116,6 @@ class Network(object):
         Z3 = tf.matmul(Z2, self.W3) + self.b3
         Y = tf.nn.sigmoid(Z3)
         return Y
-    
-
-trainX = pd.read_csv('datasets/mnist/trainX.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
-trainY = pd.read_csv('datasets/mnist/trainY.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
-testX = pd.read_csv('datasets/mnist/testX.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
-testY = pd.read_csv('datasets/mnist/testY.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
-validX = pd.read_csv('datasets/mnist/validX.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
-validY = pd.read_csv('datasets/mnist/validY.tsv', sep="\t", header=None, index_col=False, dtype=np.float32).to_numpy()
-
-trainY = relabel(trainY)
-testY = relabel(testY)
-validY = relabel(validY)
 
 train_losses = {}
 valid_losses = {}
@@ -121,42 +127,46 @@ net = Network([784,312,128,1])
 
 tqdm.write('Running Tasks')
 for task in tqdm(range(n_tasks)):
-    batches = batch_loader(trainY[task], 50, class_bal=True)
-    for batch in batches:
-        with tf.GradientTape() as tape:
-            output = net.forward(trainX[batch])
-            batch_loss = custom_bce(trainY[task, batch], output)
-#         print('batch loss:', batch_loss)
-        grads = tape.gradient(batch_loss, net.params)
-        optimizer.apply_gradients(zip(grads, net.params))
-
-    train_loss = 0
-    size = 0
     train_losses[task] = []
-    batches = batch_loader(trainY[task], 50, class_bal=True)
-    for batch in batches:
-        size += batch.shape[0]
-        output = net.forward(trainX[batch])
-#         print('train output:', output)
-        train_loss += custom_bce(trainY[task, batch], output) * batch.shape[0]
-    train_losses[task].append(train_loss/size)
-    
-    valid_loss = 0
-    size = 0
     valid_losses[task] = []
-    batches = batch_loader(validY[task], 50, class_bal=True)
-    for batch in batches:
-        size += batch.shape[0]
-        output = net.forward(validX[batch])
-        valid_loss += custom_bce(validY[task, batch], output) * batch.shape[0]
-    valid_losses[task].append(valid_loss/size)
+    
+    for epoch in range(n_epochs):
+        batches = batch_loader(trainY[task], 50, class_bal=True)
+        for batch in batches:
+            with tf.GradientTape() as tape:
+                output = net.forward(trainX[batch])
+                batch_loss = custom_bce(trainY[task, batch], output)
+#             print('batch loss:', batch_loss)
+            grads = tape.gradient(batch_loss, net.params)
+            optimizer.apply_gradients(zip(grads, net.params))
+
+        train_loss = 0
+        size = 0
+
+        batches = batch_loader(trainY[task], 50, class_bal=True)
+        for batch in batches:
+            size += batch.shape[0]
+            output = net.forward(trainX[batch])
+    #         print('train output:', output)
+            train_loss += custom_bce(trainY[task, batch], output) * batch.shape[0]
+        train_losses[task].append(train_loss/size)
+
+        valid_loss = 0
+        size = 0
+
+        batches = batch_loader(validY[task], 50, class_bal=True)
+        for batch in batches:
+            size += batch.shape[0]
+            output = net.forward(validX[batch])
+            valid_loss += custom_bce(validY[task, batch], output) * batch.shape[0]
+        valid_losses[task].append(valid_loss/size)
         
         
 print('Experiment complete')
         
 
 
-# In[11]:
+# In[17]:
 
 
 get_ipython().run_line_magic('matplotlib', 'notebook')

@@ -9,14 +9,10 @@ This code is for only the left network (autoencoder) in the architecture.
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_datasets as tfds
 from tqdm import tqdm
-import random
 import pickle as pkl
 import pandas as pd
-from tensorflow import keras
-from tensorflow.keras.layers import Dense, Flatten, Conv2D
-from tensorflow.keras import Model
-from tensorflow.keras import layers
 import matplotlib.pyplot as plt
 
 tf.keras.backend.clear_session()
@@ -101,18 +97,78 @@ class Network():
                                   global_step=tf.compat.v1.train.get_or_create_global_step())
 
 #load data
-trainX = pd.read_csv('mnist_clean/trainX.tsv', sep="\t", header=None,
-                     index_col=False, dtype=np.float32).to_numpy()
-trainY = pd.read_csv('mnist_clean/trainY.tsv', sep="\t", header=None,
-                     index_col=False, dtype=np.float32).to_numpy()
-testX = pd.read_csv('mnist_clean/testX.tsv', sep="\t", header=None,
-                    index_col=False, dtype=np.float32).to_numpy()
-testY = pd.read_csv('mnist_clean/testY.tsv', sep="\t", header=None,
-                    index_col=False, dtype=np.float32).to_numpy()
-validX = pd.read_csv('mnist_clean/validX.tsv', sep="\t", header=None,
-                     index_col=False, dtype=np.float32).to_numpy()
-validY = pd.read_csv('mnist_clean/validY.tsv', sep="\t", header=None,
-                     index_col=False, dtype=np.float32).to_numpy()
+# trainX = pd.read_csv('mnist_clean/trainX.tsv', sep="\t", header=None,
+#                      index_col=False, dtype=np.float32).to_numpy()
+# trainY = pd.read_csv('mnist_clean/trainY.tsv', sep="\t", header=None,
+#                      index_col=False, dtype=np.float32).to_numpy()
+# testX = pd.read_csv('mnist_clean/testX.tsv', sep="\t", header=None,
+#                     index_col=False, dtype=np.float32).to_numpy()
+# testY = pd.read_csv('mnist_clean/testY.tsv', sep="\t", header=None,
+#                     index_col=False, dtype=np.float32).to_numpy()
+# validX = pd.read_csv('mnist_clean/validX.tsv', sep="\t", header=None,
+#                      index_col=False, dtype=np.float32).to_numpy()
+# validY = pd.read_csv('mnist_clean/validY.tsv', sep="\t", header=None,
+#                      index_col=False, dtype=np.float32).to_numpy()
+
+# download mnist data from tensorflow
+(ds_train, ds_test) = tfds.as_numpy(tfds.load(
+                                    'mnist',
+                                    split=['train', 'test'],
+                                    shuffle_files=True,
+                                    as_supervised=True,
+                                    batch_size=-1
+                                    ))
+
+def normalize_img(images):
+    '''
+    Flatten and Normalizes images: `uint8` -> `float32`
+    :param images: input images in data
+    :return: normalized vector
+    '''
+    # images = tf.reshape(images, [images.shape[0], -1])
+    return tf.cast(images, tf.float32) / 255.0
+
+# separate images and labels
+trainX = ds_train[0]
+trainY = ds_train[1]
+testX = ds_test[0]
+testY = ds_test[1]
+
+trainX = np.reshape(trainX, (trainX.shape[0], -1))
+testX = np.reshape(testX, (testX.shape[0], -1))
+
+validX = np.empty((0,784))
+validY = np.array([])
+for num in range(10):
+    indices = np.where(trainY == num)[0]
+    indices = indices[:int(0.1 * len(indices))]
+    validX = np.append(validX, trainX[indices], axis=0)
+    validY = np.append(validY, trainY[indices])
+    trainX = np.delete(trainX, indices, axis=0)
+    trainY = np.delete(trainY, indices)
+
+print('train shapes:', trainX.shape, trainY.shape)
+print('valid shapes:', validX.shape, validY.shape)
+print('test shapes:', testX.shape, testY.shape)
+
+# # flatten input images
+# trainX = np.reshape(trainX, (trainX.shape[0], -1))
+# testX = np.reshape(testX, (testX.shape[0], -1))
+#
+# # separate validation data from training data
+# valid_indices = np.random.choice(trainX.shape[0], 10000)
+# validX = trainX[valid_indices]
+# validY = trainY[valid_indices]
+# print('before:', trainX.shape)
+# trainX = np.delete(trainX, valid_indices, axis=0)
+# trainY = np.delete(trainY, valid_indices, axis=0)
+# print('after:', trainX.shape, trainY.shape)
+# print('valid:', validX.shape, validY.shape)
+
+# normalize images
+trainX = normalize_img(trainX)
+testX = normalize_img(testX)
+validX = normalize_img(validX)
 
 # Declare the network
 net = Network(784, 512, 512)
@@ -199,10 +255,10 @@ def train_metrics(train_record):
     '''
     loss_at = 0
     size = 0
-    nums = np.random.choice(trainY.shape[0], int(trainY.shape[0] * 0.4))
-    batches = batch_loader(trainY[nums], 32)
+    # nums = np.random.choice(trainY.shape[0], int(trainY.shape[0] * 0.4))
+    batches = batch_loader(trainY, 32)
     for batch in batches:
-        Z0_hat, batch_loss = net.forward(trainX[batch])
+        Z0_hat, batch_loss = net.forward(tf.gather(trainX, batch))
         size += batch.shape[0]
         loss_at += batch_loss * batch.shape[0]
     print('\nTrain loss =', loss_at/size)
@@ -216,10 +272,10 @@ def valid_metrics(valid_record):
     '''
     loss_at = 0
     size = 0
-    nums = np.random.choice(validY.shape[0], 1000)
-    batches = batch_loader(validY[nums], 20)
+    # nums = np.random.choice(validY.shape[0], 1000)
+    batches = batch_loader(validY, 20)
     for batch in batches:
-        Z0_hat, batch_loss = net.forward(validX[batch])
+        Z0_hat, batch_loss = net.forward(tf.gather(validX, batch))
         size += batch.shape[0]
         loss_at += batch_loss * batch.shape[0]
     print('Validation loss =', loss_at/size)
@@ -236,7 +292,7 @@ def test_metrics(test_record):
     size = 0
     batches = batch_loader(testY, 32)
     for batch in batches:
-        Z0_hat, batch_loss = net.forward(testX[batch])
+        Z0_hat, batch_loss = net.forward(tf.gather(testX, batch))
         size += batch.shape[0]
         loss_at += batch_loss * batch.shape[0]
     print('Test loss =', loss_at / size)
@@ -261,7 +317,7 @@ tqdm.write('epochs running')
 for epoch in tqdm(range(n_epochs)):
     batches = batch_loader(trainX, batch_size)
     for batch in batches:
-        net.backward(trainX[batch])
+        net.backward(tf.gather(trainX, batch))
 
     # calculated train, valid, test losses
     train_losses = train_metrics(train_losses)
